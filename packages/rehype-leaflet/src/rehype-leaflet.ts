@@ -2,6 +2,56 @@ import { type Element, type Root } from 'hast'
 import { parse } from 'space-separated-tokens'
 import { type Plugin } from 'unified'
 import { visit } from 'unist-util-visit'
+import yaml from 'js-yaml'
+
+// see https://github.com/javalent/obsidian-leaflet?tab=readme-ov-file#options for all options
+interface MapConfig {
+    id: string
+    image: string
+    //tileServer: string
+    //tileSubdomains: string
+    //tileOverlay: string
+    //osmLayer: string
+    lat: number
+    long: number
+    height: string
+    width: string
+    minZoom: number
+    maxZoom: number
+    defaultZoom: number
+    zoomDelta: number
+    //zoomFeatures: string
+    unit: string
+    scale: number
+    //marker: string
+    //commandMarker: string
+    //markerFile: string
+    //markerFolder: string
+    //darkMode: boolean
+    //overlay: string
+    //overlayTag: string
+    //overlayColor: string
+    bounds: [[number, number], [number, number]]
+    //coordinates: string
+    //zoomTag: string
+    //geojson: string
+    //geojsonColor: string
+    //geojsonFolder: string
+    //gpx: string
+    //gpxMarkers: string
+    //gpxColor: string
+    //gpxFolder: string
+    //imageOverlay: string
+    //draw: boolean
+    //drawColor: string
+    //showAllMarkers: boolean
+    //preserveAspect: boolean
+    //noUI: boolean
+    //lock: boolean
+    recenter: boolean
+    //noScrollZoom: boolean
+
+}
 
 /**
  * Check if a hast element has the `language-leaflet` class name.
@@ -32,9 +82,11 @@ function isLeafletElement(element: Element): boolean {
  * @returns
  *   A `<div>` element with embedded Leaflet map.
  */
-function toLeafletElement(config: string): Element {
-    const mapId = `leaflet-map-${Math.random().toString(36).substr(2, 9)}`
-    const mapConfig = JSON.parse(config)
+function toLeafletElement(config: MapConfig): Element {
+    const mapId = config.id || `leaflet-map-${Math.random().toString(36).substr(2, 9)}`
+
+    // Check if the image path is a local file and convert it to a data URL
+    let imageUrl = config.image
 
     // Create the Leaflet map container
     const div: Element = {
@@ -43,7 +95,7 @@ function toLeafletElement(config: string): Element {
         properties: {
             id: mapId,
             className: ['leaflet-map'],
-            style: 'width: 100%; height: 400px;'  // You can customize the dimensions as needed
+            style: `width: ${config.width}; height: ${config.height};`  // You can customize the dimensions as needed
         },
         children: []
     }
@@ -57,14 +109,25 @@ function toLeafletElement(config: string): Element {
             type: 'text',
             value: `
         document.addEventListener('DOMContentLoaded', function() {
-          var map = L.map('${mapId}').setView([${mapConfig.lat}, ${mapConfig.lng}], ${mapConfig.zoom});
-          L.tileLayer('${mapConfig.tileLayer}', {
-            attribution: '${mapConfig.attribution}',
-            maxZoom: ${mapConfig.maxZoom}
-          }).addTo(map);
-          ${mapConfig.markers.map((marker: { lat: number, lng: number, popup: string }) => `
-            L.marker([${marker.lat}, ${marker.lng}]).addTo(map).bindPopup('${marker.popup}');
-          `).join('')}
+        
+        let bounds = L.latLngBounds(${JSON.stringify(config.bounds)});
+        
+        var map = L.map('${mapId}', {
+        minZoom: ${config.minZoom},
+        maxZoom: ${config.maxZoom},
+        zoom: ${config.defaultZoom}
+        }).fitBounds(bounds);
+
+        L.imageOverlay('${imageUrl}', bounds).addTo(map);
+
+        if (${config.recenter}) {
+            map.setMaxBounds(bounds);
+        }
+        
+        map.on("first-layer-ready", () => {
+        
+        })
+
         });
       `
         }]
@@ -89,7 +152,8 @@ const rehypeLeaflet: Plugin<[], Root> = () => {
 
         visit(ast, 'element', (node: any, index, parent) => {
             if (isLeafletElement(node)) {
-                const config = node.children.map((child: any) => child.value).join('')
+                const configText = node.children.map((child: any) => child.value).join('')
+                const config = yaml.load(configText) as MapConfig
                 const leafletElement = toLeafletElement(config)
 
                 if (parent && typeof index === 'number') {
