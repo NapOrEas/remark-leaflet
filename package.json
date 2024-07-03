@@ -1,0 +1,15 @@
+{
+  "name": "remark-leaflet",
+  "version": "0.1.0",
+  "description": "remark and rehype plugins to support leaflet maps",
+  "type": "module",
+  "workspaces": [
+    "packages/remark-leaflet/",
+    "packages/remark-leaflet/"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
