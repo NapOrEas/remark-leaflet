@@ -3,6 +3,9 @@ import { parse } from 'space-separated-tokens'
 import { type Plugin } from 'unified'
 import { visit } from 'unist-util-visit'
 import yaml from 'js-yaml'
+//import { Loader } from './loader'
+
+//const loader = new Loader();
 
 // see https://github.com/javalent/obsidian-leaflet?tab=readme-ov-file#options for all options
 interface MapConfig {
@@ -46,10 +49,10 @@ interface MapConfig {
     //drawColor: string
     //showAllMarkers: boolean
     //preserveAspect: boolean
-    //noUI: boolean
+    noUI: boolean
     //lock: boolean
     recenter: boolean
-    //noScrollZoom: boolean
+    noScrollZoom: boolean
 
 }
 
@@ -82,20 +85,44 @@ function isLeafletElement(element: Element): boolean {
  * @returns
  *   A `<div>` element with embedded Leaflet map.
  */
-function toLeafletElement(config: MapConfig): Element {
-    const mapId = config.id || `leaflet-map-${Math.random().toString(36).substr(2, 9)}`
-
+async function toLeafletElement(config: MapConfig): Promise<Element> {
+    const defaults: MapConfig = {
+        id: `leaflet-map-${Math.random().toString(36).substr(2, 9)}`,
+        image: '',
+        lat: 50.0,
+        long: 50.0,
+        height: '500px',
+        width: '100%',
+        minZoom: 1,
+        maxZoom: 10,
+        defaultZoom: 5,
+        zoomDelta: 1,
+        unit: 'meters',
+        scale: 1,
+        bounds: [[0, 0], [0, 0]],
+        noUI: false,
+        recenter: false,
+        noScrollZoom: false
+    }
     // Check if the image path is a local file and convert it to a data URL
-    let imageUrl = config.image
+    const merged = { ...defaults, ...config }
+
+    let imageUrl = merged.image
+
+    // Use the loader to get image dimensions
+
+    const h = merged.bounds[1][0]
+    const w = merged.bounds[1][1]
+
 
     // Create the Leaflet map container
     const div: Element = {
         type: 'element',
         tagName: 'div',
         properties: {
-            id: mapId,
+            id: merged.id,
             className: ['leaflet-map'],
-            style: `width: ${config.width}; height: ${config.height};`  // You can customize the dimensions as needed
+            style: `width: ${merged.width}; height: ${merged.height};`  // You can customize the dimensions as needed
         },
         children: []
     }
@@ -110,18 +137,27 @@ function toLeafletElement(config: MapConfig): Element {
             value: `
         document.addEventListener('DOMContentLoaded', function() {
         
-        let bounds = L.latLngBounds(${JSON.stringify(config.bounds)});
+        let mapBounds = L.latLngBounds(${JSON.stringify(merged.bounds)});
         
-        var map = L.map('${mapId}', {
-        minZoom: ${config.minZoom},
-        maxZoom: ${config.maxZoom},
-        zoom: ${config.defaultZoom}
-        }).fitBounds(bounds);
+        var map = L.map('${merged.id}', {
+        minZoom: ${merged.minZoom},
+        maxZoom: ${merged.maxZoom},
+        scrollWheelZoom: ${!merged.noScrollZoom},
+        zoomDelta: ${merged.zoomDelta},
+        zoomSnap: ${merged.zoomDelta},
+        zoomControl: ${!merged.noUI},
+        wheelPxPerZoomLevel: 60 * (1 / ${merged.zoomDelta})
+        }).fitBounds(mapBounds);
+     
+        const southWest = map.unproject([0, ${h}], map.getMaxZoom() -1);
+        const northEast = map.unproject([${w}, 0],  map.getMaxZoom() -1);
 
-        L.imageOverlay('${imageUrl}', bounds).addTo(map);
+        let imageBounds = L.latLngBounds(southWest, northEast);
 
-        if (${config.recenter}) {
-            map.setMaxBounds(bounds);
+        L.imageOverlay('${imageUrl}', imageBounds).addTo(map);
+
+        if (${merged.recenter}) {
+            map.setMaxBounds(mapBounds);
         }
         
         map.on("first-layer-ready", () => {
@@ -148,18 +184,29 @@ function toLeafletElement(config: MapConfig): Element {
  *   Options that may be used to tweak the output.
  */
 export const rehypeLeaflet: Plugin<[], Root> = () => {
-    return (ast: any) => {
+    return async (ast: any) => {
+
+        const leafLetNodes: Array<{ node: any; index: number | undefined; parent: any }> = [];
+
+
 
         visit(ast, 'element', (node: any, index, parent) => {
             if (isLeafletElement(node)) {
-                const configText = node.children.map((child: any) => child.value).join('')
-                const config = yaml.load(configText) as MapConfig
-                const leafletElement = toLeafletElement(config)
-
-                if (parent && typeof index === 'number') {
-                    parent.children[index] = leafletElement
-                }
+                leafLetNodes.push({ node, index, parent })
             }
         })
+
+        for (const { node, index, parent } of leafLetNodes) {
+
+            const configText = node.children.map((child: any) => child.value).join('')
+            const config = yaml.load(configText) as MapConfig
+            const leafletElement = await toLeafletElement(config)
+
+            if (parent && typeof index === 'number') {
+                parent.children[index] = leafletElement
+            }
+        }
+
+
     }
 }
