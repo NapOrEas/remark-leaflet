@@ -147,7 +147,7 @@ function toLeafletElement(config: MapConfig): Element {
  * @param options
  *   Options that may be used to tweak the output.
  */
-const rehypeLeaflet: Plugin<[], Root> = () => {
+export const rehypeLeaflet: Plugin<[], Root> = () => {
     return (ast: any) => {
 
         visit(ast, 'element', (node: any, index, parent) => {
@@ -163,5 +163,3 @@ const rehypeLeaflet: Plugin<[], Root> = () => {
         })
     }
 }
-
-export default rehypeLeaflet

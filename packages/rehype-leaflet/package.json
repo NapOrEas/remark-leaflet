@@ -2,10 +2,25 @@
   "name": "rehype-leaflet",
   "version": "0.1.0",
   "description": "rehype plugin to support leaflet maps",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "license": "MIT",
+  "keywords": [
+    "hast",
+    "html",
+    "leaflet",
+    "markdown",
+    "plugin",
+    "rehype",
+    "rehype-plugin",
+    "remark",
+    "unified"
+  ],
+  "repository": "https://github.com/NapOrEas/remark-leaflet",
+  "bugs": "https://github.com/NapOrEas/remark-leaflet/issues",
+  "author": "",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "dependencies": {
     "@types/hast": "^3.0.0",
     "js-yaml": "^4.1.0",
@@ -17,8 +32,12 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "rehype": "^13.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "tsup": "^8.1.0"
   },
-  "author": "",
-  "license": "ISC"
+  "scripts": {
+    "build": "tsup index.ts --format cjs,esm --dts",
+    "test": "npm run build",
+    "lint": "tsc"
+  }
 }
