@@ -160,10 +160,6 @@ async function toLeafletElement(config: MapConfig): Promise<Element> {
             map.setMaxBounds(mapBounds);
         }
         
-        map.on("first-layer-ready", () => {
-        
-        })
-
         });
       `
         }]
